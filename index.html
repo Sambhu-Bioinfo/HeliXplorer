@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="en" class="dark h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DNA VISION 3D: Interactive DNA Helix & Bioinformatics Platform</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        navy: { 950: '#030712', 900: '#0a0f1d', 800: '#111827', 700: '#1f2937' },
+                        cyan: { 400: '#22d3ee', 500: '#06b6d4', 900: '#164e63' },
+                        bio: {
+                            a: '#ef4444', // Adenine (Red)
+                            t: '#3b82f6', // Thymine (Blue)
+                            g: '#10b981', // Guanine (Green)
+                            c: '#f59e0b', // Cytosine (Amber)
+                            u: '#8b5cf6', // Uracil (Purple)
+                            backbone: '#06b6d4'
+                        }
+                    },
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Three.js (3D Graphics) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Chart.js (Data Visualization) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Style adjustments -->
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0a0f1d; }
+        ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #06b6d4; }
+        
+        /* Glassmorphism effects */
+        .glass-panel {
+            background: rgba(10, 15, 29, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .glow-cyan {
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.25);
+        }
+
+        .glow-text-cyan {
+            text-shadow: 0 0 8px rgba(34, 211, 238, 0.6);
+        }
+
+        /* Canvas styling */
+        #webgl-canvas {
+            outline: none;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Pulse Animations */
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.7; }
+        }
+        .animate-pulse-slow {
+            animation: pulse-slow 3s infinite ease-in-out;
+        }
+    </style>
+</head>
+
+<body class="bg-navy-950 text-slate-200 font-sans h-screen flex flex-col overflow-hidden select-none">
+
+    <!-- TOP NAVIGATION BAR -->
+    <header class="h-14 border-b border-slate-800/80 bg-navy-900/90 px-4 flex items-center justify-between shrink-0 z-20">
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 glow-cyan">
+                <i data-lucide="dna" class="w-5 h-5"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg tracking-wider text-slate-100 flex items-center gap-2">
+                    DNA VISION <span class="text-xs px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-mono border border-cyan-500/30">3D PRO</span>
+                </h1>
+                <p class="text-[11px] text-slate-400 hidden sm:block">Explore the molecular architecture of life</p>
+            </div>
+        </div>
+
+        <!-- Control Action Buttons -->
+        <div class="flex items-center space-x-2">
+            <button id="btn-sample-data" class="px-3 py-1.5 text-xs font-mono rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5 text-cyan-400"></i>
+                <span>Load Sample</span>
+            </button>
+
+            <button id="btn-learn-mode" class="px-3 py-1.5 text-xs font-mono rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5">
+                <i data-lucide="book-open" class="w-3.5 h-3.5 text-indigo-400"></i>
+                <span class="hidden md:inline">Molecular Guide</span>
+            </button>
+
+            <button id="btn-export-menu" class="px-3 py-1.5 text-xs font-mono rounded bg-cyan-600 hover:bg-cyan-500 text-white font-medium transition flex items-center gap-1.5">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                <span>Export (.txt)</span>
+            </button>
+
+            <button id="btn-record" class="px-3 py-1.5 text-xs font-mono rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center gap-1.5" title="Record the 3D DNA viewport">
+                <i data-lucide="circle" class="w-3.5 h-3.5 text-red-400"></i>
+                <span id="btn-record-label">Record</span>
+            </button>
+            <button id="btn-fullscreen" class="p-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition" title="Toggle full-screen mode">
+                <i data-lucide="maximize-2" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT AREA -->
+    <div class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+
+        <!-- LEFT CONTROL & INPUT PANEL -->
+        <aside id="left-panel" class="w-full lg:w-96 glass-panel border-r border-slate-800/80 flex flex-col shrink-0 z-10 transition-all duration-300 max-h-[45vh] lg:max-h-none overflow-y-auto">
+            
+            <!-- Tab Navigation -->
+            <div class="flex border-b border-slate-800 text-xs font-mono bg-navy-900/50">
+                <button class="tab-btn active flex-1 py-2.5 px-3 border-b-2 border-cyan-400 text-cyan-400 font-semibold flex items-center justify-center gap-2" data-tab="fasta">
+                    <i data-lucide="file-text" class="w-3.5 h-3.5"></i> FASTA
+                </button>
+                <button class="tab-btn flex-1 py-2.5 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-2" data-tab="ncbi">
+                    <i data-lucide="globe" class="w-3.5 h-3.5"></i> NCBI Fetch
+                </button>
+                <button class="tab-btn flex-1 py-2.5 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-2" data-tab="render-settings">
+                    <i data-lucide="sliders" class="w-3.5 h-3.5"></i> Display
+                </button>
+            </div>
+
+            <!-- TAB CONTENT PANELS -->
+            <div class="p-4 flex-1 flex flex-col space-y-4 overflow-y-auto">
+                
+                <!-- 1. FASTA INPUT -->
+                <div id="tab-fasta" class="tab-content flex-1 flex flex-col space-y-3">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-mono text-slate-400 flex items-center gap-1.5">
+                            <i data-lucide="code" class="w-3.5 h-3.5"></i> Sequence Input (FASTA)
+                        </label>
+                        <span id="seq-length-badge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">0 bp</span>
+                    </div>
+
+                    <textarea id="fasta-input" class="w-full flex-1 h-36 lg:h-48 bg-navy-950 border border-slate-800 rounded-lg p-3 text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 resize-none transition" placeholder=">Sample_DNA&#10;ATGCGTACGTAGCTAGCTAGGCTAACGT..."></textarea>
+                    
+                    <!-- File Drag & Drop Box -->
+                    <div id="drop-zone" class="border border-dashed border-slate-700/80 hover:border-cyan-500/50 rounded-lg p-3 text-center transition cursor-pointer bg-slate-900/40">
+                        <input type="file" id="file-input" accept=".fasta,.fa,.fna,.txt" class="hidden">
+                        <div class="flex items-center justify-center gap-2 text-slate-400 text-xs font-mono">
+                            <i data-lucide="upload-cloud" class="w-4 h-4 text-cyan-400"></i>
+                            <span>Drop FASTA file or <span class="text-cyan-400 underline">browse</span></span>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2 pt-1">
+                        <button id="btn-visualize" class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-mono text-xs py-2.5 rounded-lg transition font-semibold flex items-center justify-center gap-2 glow-cyan">
+                            <i data-lucide="play" class="w-4 h-4"></i> Visualize 3D Model
+                        </button>
+                        <button id="btn-clear" class="px-3 bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs rounded-lg transition">
+                            Clear
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2. NCBI FETCH -->
+                <div id="tab-ncbi" class="tab-content hidden flex-1 flex flex-col space-y-3">
+                    <label class="text-xs font-mono text-slate-400">NCBI Nucleotide Accession ID</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="ncbi-id-input" placeholder="e.g. NC_012920.1 or NM_000518" class="flex-1 bg-navy-950 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-500">
+                        <button id="btn-ncbi-fetch" class="px-4 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-mono rounded-lg transition flex items-center gap-1.5">
+                            <i data-lucide="search" class="w-3.5 h-3.5"></i> Fetch
+                        </button>
+                    </div>
+                    <p class="text-[11px] text-slate-400">Retrieves real-time sequence records directly from NCBI E-Utilities API.</p>
+                    
+                    <div id="ncbi-meta" class="hidden p-3 rounded-lg bg-navy-950 border border-slate-800 text-xs font-mono space-y-1.5">
+                        <div class="text-cyan-400 font-bold" id="ncbi-title">--</div>
+                        <div class="text-slate-400 text-[11px]" id="ncbi-organism">--</div>
+                        <div class="text-slate-500 text-[10px]" id="ncbi-len">--</div>
+                    </div>
+                </div>
+
+                <!-- 3. RENDER / DISPLAY SETTINGS -->
+                <div id="tab-render-settings" class="tab-content hidden flex-1 flex flex-col space-y-4 text-xs font-mono">
+                    <div class="space-y-2">
+                        <label class="text-slate-400 flex justify-between">
+                            <span>Rotation Speed</span>
+                            <span id="val-speed" class="text-cyan-400">1.0x</span>
+                        </label>
+                        <input type="range" id="slider-speed" min="0" max="3" step="0.1" value="1.0" class="w-full accent-cyan-400">
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-slate-400 flex justify-between">
+                            <span>Visible Sequence Window</span>
+                            <span id="val-window" class="text-cyan-400">40 bp</span>
+                        </label>
+                        <input type="range" id="slider-window" min="10" max="120" step="5" value="40" class="w-full accent-cyan-400">
+                    </div>
+
+                    <div class="space-y-2">
+                        <label class="text-slate-400 flex justify-between">
+                            <span>Helical Pitch / Scale</span>
+                            <span id="val-pitch" class="text-cyan-400">1.0</span>
+                        </label>
+                        <input type="range" id="slider-pitch" min="0.5" max="2.0" step="0.1" value="1.0" class="w-full accent-cyan-400">
+                    </div>
+
+                    <div class="pt-2 space-y-2 border-t border-slate-800">
+                        <div class="text-slate-400 mb-1">Visual Features</div>
+                        <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+                            <input type="checkbox" id="chk-backbone" checked class="rounded border-slate-700 text-cyan-500 focus:ring-0">
+                            <span>Render Sugar-Phosphate Backbone</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+                            <input type="checkbox" id="chk-hbonds" checked class="rounded border-slate-700 text-cyan-500 focus:ring-0">
+                            <span>Hydrogen Bond Connections</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+                            <input type="checkbox" id="chk-particles" checked class="rounded border-slate-700 text-cyan-500 focus:ring-0">
+                            <span>Ambient Light Particles</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+                            <input type="checkbox" id="chk-labels" checked class="rounded border-slate-700 text-cyan-500 focus:ring-0">
+                            <span>Nucleotide Labels (3D)</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sequence Stats Quick Summary Card -->
+            <div class="p-4 border-t border-slate-800/80 bg-navy-900/60 font-mono text-xs space-y-2">
+                <div class="flex justify-between text-slate-400">
+                    <span>Base Composition:</span>
+                    <span id="stat-gc-percent" class="text-cyan-400 font-bold">GC: --%</span>
+                </div>
+                <!-- Color Bar Composition -->
+                <div class="h-2 w-full bg-slate-800 rounded-full overflow-hidden flex">
+                    <div id="bar-a" class="bg-bio-a transition-all duration-300 h-full" style="width: 25%"></div>
+                    <div id="bar-t" class="bg-bio-t transition-all duration-300 h-full" style="width: 25%"></div>
+                    <div id="bar-g" class="bg-bio-g transition-all duration-300 h-full" style="width: 25%"></div>
+                    <div id="bar-c" class="bg-bio-c transition-all duration-300 h-full" style="width: 25%"></div>
+                </div>
+                <div class="flex justify-between text-[10px] text-slate-400 pt-0.5">
+                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-bio-a inline-block"></span> A: <span id="cnt-a">0</span></span>
+                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-bio-t inline-block"></span> T: <span id="cnt-t">0</span></span>
+                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-bio-g inline-block"></span> G: <span id="cnt-g">0</span></span>
+                    <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-bio-c inline-block"></span> C: <span id="cnt-c">0</span></span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- CENTER 3D VISUALIZATION VIEWPORT -->
+        <main class="flex-1 relative bg-navy-950 overflow-hidden flex flex-col">
+            
+            <!-- WebGL Canvas -->
+            <div id="canvas-container" class="relative flex-1 w-full h-full cursor-grab">
+                <canvas id="webgl-canvas"></canvas>
+
+                <!-- Floating 3D HUD / Camera Controls Overlay -->
+                <div class="absolute top-4 right-4 flex flex-col gap-2 z-10">
+                    <button id="btn-cam-reset" title="Reset Camera View" class="p-2 rounded-lg glass-panel hover:bg-slate-800 text-slate-300 hover:text-cyan-400 transition">
+                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                    </button>
+                    <button id="btn-toggle-auto-rotate" title="Toggle Auto Rotation" class="p-2 rounded-lg glass-panel hover:bg-slate-800 text-cyan-400 transition">
+                        <i data-lucide="disc" class="w-4 h-4 animate-spin" style="animation-duration: 6s;"></i>
+                    </button>
+                    <button id="btn-cam-top" title="Top Down View" class="p-2 rounded-lg glass-panel hover:bg-slate-800 text-slate-300 hover:text-cyan-400 transition font-mono text-[10px] font-bold">
+                        5' / 3'
+                    </button>
+                </div>
+
+                <!-- Selected Base Inspector Overlay Card -->
+                <div id="inspector-card" class="hidden absolute left-4 top-4 glass-panel border border-cyan-500/40 rounded-lg p-3 w-64 text-xs font-mono space-y-2 z-10 shadow-2xl">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-1.5">
+                        <span class="text-cyan-400 font-bold flex items-center gap-1.5">
+                            <i data-lucide="microscope" class="w-3.5 h-3.5"></i> Nucleotide Inspector
+                        </span>
+                        <button id="btn-close-inspector" class="text-slate-500 hover:text-slate-300">&times;</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-[11px]">
+                        <div>
+                            <span class="text-slate-500 block">Position</span>
+                            <span id="insp-pos" class="text-slate-200 font-bold">bp #12</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block">Base Pair</span>
+                            <span id="insp-pair" class="text-cyan-300 font-bold">A = T</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block">Sense (5'→3')</span>
+                            <span id="insp-sense" class="text-red-400 font-bold">Adenine (A)</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block">Antisense</span>
+                            <span id="insp-anti" class="text-blue-400 font-bold">Thymine (T)</span>
+                        </div>
+                    </div>
+                    <div class="pt-1 border-t border-slate-800 text-[10px] text-slate-400">
+                        <span>H-Bonds: <strong id="insp-hbonds" class="text-slate-200">2 Bonds</strong></span>
+                    </div>
+                </div>
+
+                <!-- 3D Scene Loading Spinner -->
+                <div id="loader" class="hidden absolute inset-0 glass-panel flex flex-col items-center justify-center z-20">
+                    <div class="w-12 h-12 border-4 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin mb-3"></div>
+                    <div class="text-xs font-mono text-cyan-400 tracking-wider">GENERATING MOLECULAR GEOMETRY...</div>
+                </div>
+            </div>
+
+            <!-- BOTTOM TIMELINE & SEQUENCE BROWSER TRACK -->
+            <div class="h-20 glass-panel border-t border-slate-800 flex flex-col justify-center px-4 shrink-0 z-10">
+                <div class="flex items-center justify-between text-xs font-mono text-slate-400 mb-1">
+                    <span class="flex items-center gap-1.5">
+                        <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5 text-cyan-400"></i>
+                        Sequence Navigation Track
+                    </span>
+                    <span id="track-range" class="text-cyan-400">bp 1 - 40</span>
+                </div>
+                <!-- Interactive Sequence Navigator Track -->
+                <div id="sequence-browser" class="w-full flex items-center h-8 bg-navy-950 rounded border border-slate-800 px-2 overflow-x-auto gap-1 font-mono text-xs select-none scrollbar-none">
+                    <!-- Dynamic base pills generated here -->
+                </div>
+            </div>
+
+        </main>
+
+        <!-- RIGHT ANALYSIS & TERMINAL PANEL -->
+        <aside id="right-panel" class="w-full lg:w-96 glass-panel border-l border-slate-800/80 flex flex-col shrink-0 z-10 max-h-[50vh] lg:max-h-none overflow-y-auto">
+            
+            <!-- Tab Headers for Analysis / Terminal -->
+            <div class="flex border-b border-slate-800 text-xs font-mono bg-navy-900/50">
+                <button class="right-tab-btn active flex-1 py-2.5 px-3 border-b-2 border-cyan-400 text-cyan-400 font-semibold flex items-center justify-center gap-1.5" data-rtab="analytics">
+                    <i data-lucide="bar-chart-2" class="w-3.5 h-3.5"></i> Dashboard
+                </button>
+                <button class="right-tab-btn flex-1 py-2.5 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5" data-rtab="terminal">
+                    <i data-lucide="terminal" class="w-3.5 h-3.5"></i> Terminal Console
+                </button>
+            </div>
+
+            <!-- RIGHT TAB CONTENT PANELS -->
+            <div class="p-4 flex-1 flex flex-col space-y-4 overflow-y-auto">
+                
+                <!-- 1. BIOINFORMATICS DASHBOARD -->
+                <div id="rtab-analytics" class="right-tab-content flex-1 flex flex-col space-y-4">
+                    
+                    <!-- GC Content Sliding Window Chart -->
+                    <div class="bg-navy-950 border border-slate-800/80 rounded-lg p-3 space-y-2">
+                        <div class="flex justify-between items-center text-xs font-mono">
+                            <span class="text-slate-300 font-bold flex items-center gap-1">
+                                <i data-lucide="activity" class="w-3.5 h-3.5 text-cyan-400"></i> GC Content Plot
+                            </span>
+                            <span class="text-[10px] text-slate-500">Window: 10bp</span>
+                        </div>
+                        <div class="h-32 w-full">
+                            <canvas id="gcChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- ORF (Open Reading Frames) Detector Panel -->
+                    <div class="bg-navy-950 border border-slate-800/80 rounded-lg p-3 space-y-2">
+                        <div class="flex justify-between items-center text-xs font-mono">
+                            <span class="text-slate-300 font-bold flex items-center gap-1">
+                                <i data-lucide="dna-off" class="w-3.5 h-3.5 text-indigo-400"></i> Open Reading Frames (ORFs)
+                            </span>
+                            <span id="orf-count-badge" class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">0 Found</span>
+                        </div>
+                        <div id="orf-list" class="max-h-28 overflow-y-auto space-y-1 text-xs font-mono">
+                            <div class="text-slate-500 text-[11px] italic">Run analysis to detect ATG start codons...</div>
+                        </div>
+                    </div>
+
+                    <!-- Reverse Complement Generator Card -->
+                    <div class="bg-navy-950 border border-slate-800/80 rounded-lg p-3 space-y-2 text-xs font-mono">
+                        <div class="flex justify-between items-center">
+                            <span class="text-slate-300 font-bold">Reverse Complement (3'→5')</span>
+                            <button id="btn-copy-revcomp" class="text-[10px] text-cyan-400 hover:underline">Copy</button>
+                        </div>
+                        <div id="revcomp-output" class="p-2 bg-navy-900 rounded border border-slate-800 text-[11px] text-slate-300 break-all max-h-16 overflow-y-auto">
+                            --
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- 2. LINUX TERMINAL-STYLE CONSOLE -->
+                <div id="rtab-terminal" class="right-tab-content hidden flex-1 flex flex-col h-full bg-navy-950 border border-slate-800 rounded-lg overflow-hidden font-mono text-xs">
+                    <!-- Console Log Window -->
+                    <div id="terminal-logs" class="flex-1 p-3 overflow-y-auto space-y-1 text-slate-300 text-[11px] leading-relaxed select-text min-h-[260px]">
+                        <div class="text-cyan-400">[DNA-VISION] System Initialized v3.2</div>
+                        <div class="text-slate-500">[INFO] Ready for sequence ingestion. Type 'help' for available commands.</div>
+                    </div>
+
+                    <!-- Interactive Command Line Input -->
+                    <div class="p-2 border-t border-slate-800 bg-navy-900 flex items-center gap-2">
+                        <span class="text-cyan-400">$</span>
+                        <input type="text" id="terminal-cmd" placeholder="Type command (e.g. 'help', 'orfs', 'stats', 'reset')" class="w-full bg-transparent text-xs text-slate-200 focus:outline-none font-mono">
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+    </div>
+
+    <!-- MOLECULAR LEARNING GUIDE MODAL -->
+    <div id="guide-modal" class="hidden fixed inset-0 glass-panel bg-navy-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="max-w-2xl w-full bg-navy-900 border border-slate-800 rounded-xl p-6 space-y-4 shadow-2xl font-sans">
+            <div class="flex justify-between items-center border-b border-slate-800 pb-3">
+                <h3 class="text-base font-bold text-slate-100 flex items-center gap-2">
+                    <i data-lucide="book-open" class="text-cyan-400"></i> DNA Molecular Architecture Guide
+                </h3>
+                <button id="btn-close-guide" class="text-slate-400 hover:text-white">&times;</button>
+            </div>
+
+            <div class="space-y-3 text-xs text-slate-300 leading-relaxed max-h-96 overflow-y-auto pr-2">
+                <div class="p-3 bg-navy-950 rounded-lg border border-slate-800 space-y-1">
+                    <h4 class="font-bold text-cyan-400">1. Antiparallel Strands (5' to 3')</h4>
+                    <p>The DNA double helix consists of two directional strands running in opposite directions. One strand runs 5' to 3', while its complement runs 3' to 5'.</p>
+                </div>
+
+                <div class="p-3 bg-navy-950 rounded-lg border border-slate-800 space-y-1">
+                    <h4 class="font-bold text-cyan-400">2. Watson-Crick Base Pairing Rules</h4>
+                    <p>Nucleotides pair specifically across strands via hydrogen bonds:</p>
+                    <ul class="list-disc pl-5 space-y-1 text-slate-400">
+                        <li><strong class="text-red-400">Adenine (A)</strong> pairs with <strong class="text-blue-400">Thymine (T)</strong> via 2 Hydrogen Bonds.</li>
+                        <li><strong class="text-emerald-400">Guanine (G)</strong> pairs with <strong class="text-amber-400">Cytosine (C)</strong> via 3 Hydrogen Bonds.</li>
+                    </ul>
+                </div>
+
+                <div class="p-3 bg-navy-950 rounded-lg border border-slate-800 space-y-1">
+                    <h4 class="font-bold text-cyan-400">3. Helical Geometry (B-DNA Model)</h4>
+                    <p>Standard B-DNA completes a full 360° helical turn every 10.5 base pairs, with a helical pitch of ~3.4 nm and major/minor grooves regulating protein interaction.</p>
+                </div>
+            </div>
+
+            <div class="pt-2 flex justify-end">
+                <button id="btn-close-guide-footer" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-mono text-slate-200 rounded-lg transition">
+                    Got it
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT APPLICATION LOGIC -->
+    <script>
+        /**
+         * DNA VISION 3D - Core Application Architecture
+         * Features: Three.js 3D Helix Generator with 2D Canvas Text Labels, FASTA & NCBI Parsers, GC Analytics Chart, Terminal.
+         */
+
+        // App State Management
+        const STATE = {
+            rawFasta: "",
+            sequenceName: "Sample_DNA",
+            sequence: "ATGCGTACGTAGCTAGCTAGGCTAACGTATGCGTACGTAGCTAGCTAGGCTAACGT",
+            complement: "",
+            windowSize: 40,
+            autoRotate: true,
+            rotationSpeed: 1.0,
+            pitch: 1.0,
+            showBackbone: true,
+            showHBonds: true,
+            showParticles: true,
+            showLabels: true,
+            selectedIndex: null,
+            detectedOrfs: [],
+            gcChartInstance: null
+        };
+
+        // Nucleotide Color Mapping
+        const NUC_COLORS = {
+            'A': 0xef4444, // Red
+            'T': 0x3b82f6, // Blue
+            'G': 0x10b981, // Green
+            'C': 0xf59e0b, // Amber
+            'U': 0x8b5cf6  // Purple
+        };
+
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // --- 1. THREE.JS 3D SCENE & HELIX GENERATOR ENGINE ---
+        let scene, camera, renderer, controls;
+        let helixGroup, particleGroup, labelsGroup;
+
+        function init3DScene() {
+            const container = document.getElementById('canvas-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x030712);
+            scene.fog = new THREE.FogExp2(0x030712, 0.015);
+
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+            camera.position.set(0, 0, 35);
+
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('webgl-canvas'), antialias: true, alpha: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+
+            // Orbit Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // Ambient & Directional Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight1 = new THREE.DirectionalLight(0x06b6d4, 1.2);
+            dirLight1.position.set(10, 20, 15);
+            scene.add(dirLight1);
+
+            const dirLight2 = new THREE.DirectionalLight(0x3b82f6, 0.8);
+            dirLight2.position.set(-10, -20, -15);
+            scene.add(dirLight2);
+
+            // Helical Container Groups
+            helixGroup = new THREE.Group();
+            particleGroup = new THREE.Group();
+            labelsGroup = new THREE.Group();
+            scene.add(helixGroup);
+            scene.add(particleGroup);
+            scene.add(labelsGroup);
+
+            // Build Ambient Particle Stars
+            createAmbientParticles();
+
+            // Event Listeners
+            window.addEventListener('resize', onWindowResize);
+            setupRaycaster();
+
+            // Render loop
+            animate();
+        }
+
+        function createAmbientParticles() {
+            particleGroup.clear();
+            const count = 300;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(count * 3);
+
+            for (let i = 0; i < count * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 80;
+                positions[i + 1] = (Math.random() - 0.5) * 80;
+                positions[i + 2] = (Math.random() - 0.5) * 80;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const material = new THREE.PointsMaterial({
+                color: 0x06b6d4,
+                size: 0.3,
+                transparent: true,
+                opacity: 0.4
+            });
+
+            const points = new THREE.Points(geometry, material);
+            particleGroup.add(points);
+        }
+
+        // Helper function to create 3D Sprite Labels for Nucleotide Position & Base Name
+        function createTextSprite(text, colorHex = '#ffffff') {
+            const canvas = document.createElement('canvas');
+            canvas.width = 128;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = 'rgba(10, 15, 29, 0.85)';
+            ctx.strokeStyle = colorHex;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(4, 4, 120, 56, 8);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.font = 'Bold 22px "JetBrains Mono", monospace';
+            ctx.fillStyle = colorHex;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 64, 32);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.scale.set(2.2, 1.1, 1);
+            return sprite;
+        }
+
+        // Build 3D Helix from Sequence Segment
+        function render3DHelix() {
+            helixGroup.clear();
+
+            const seq = STATE.sequence.toUpperCase();
+            const windowSize = Math.min(seq.length, STATE.windowSize);
+            const radius = 4.5;
+            const bpSpacing = 1.2 * STATE.pitch;
+            const anglePerBP = (Math.PI * 2) / 10.5; // ~10.5 bp per turn B-DNA
+
+            const strand1Points = [];
+            const strand2Points = [];
+
+            const startY = -((windowSize - 1) * bpSpacing) / 2;
+
+            for (let i = 0; i < windowSize; i++) {
+                const base = seq[i] || 'N';
+                const compBase = getComplement(base);
+
+                const angle = i * anglePerBP;
+                const y = startY + (i * bpSpacing);
+
+                // Strand 1 Position (Sense)
+                const x1 = Math.cos(angle) * radius;
+                const z1 = Math.sin(angle) * radius;
+
+                // Strand 2 Position (Antisense 180 deg offset)
+                const x2 = Math.cos(angle + Math.PI) * radius;
+                const z2 = Math.sin(angle + Math.PI) * radius;
+
+                strand1Points.push(new THREE.Vector3(x1, y, z1));
+                strand2Points.push(new THREE.Vector3(x2, y, z2));
+
+                // 1. Create Nucleotide Base Meshes
+                const baseColor1 = NUC_COLORS[base] || 0x6b7280;
+                const baseColor2 = NUC_COLORS[compBase] || 0x6b7280;
+
+                // Base 1 Cylinder
+                const baseGeo1 = new THREE.CylinderGeometry(0.35, 0.35, radius * 0.9, 16);
+                const mat1 = new THREE.MeshPhongMaterial({ color: baseColor1, shininess: 80 });
+                const mesh1 = new THREE.Mesh(baseGeo1, mat1);
+                
+                const mid1X = x1 / 2;
+                const mid1Z = z1 / 2;
+                mesh1.position.set(mid1X, y, mid1Z);
+                mesh1.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(x1, 0, z1).normalize());
+                mesh1.userData = { index: i, base: base, strand: 'sense' };
+                helixGroup.add(mesh1);
+
+                // Base 2 Cylinder (Complement)
+                const baseGeo2 = new THREE.CylinderGeometry(0.35, 0.35, radius * 0.9, 16);
+                const mat2 = new THREE.MeshPhongMaterial({ color: baseColor2, shininess: 80 });
+                const mesh2 = new THREE.Mesh(baseGeo2, mat2);
+
+                const mid2X = x2 / 2;
+                const mid2Z = z2 / 2;
+                mesh2.position.set(mid2X, y, mid2Z);
+                mesh2.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(x2, 0, z2).normalize());
+                mesh2.userData = { index: i, base: compBase, strand: 'antisense' };
+                helixGroup.add(mesh2);
+
+                // 2. Add 3D Text Labeling for base position & character
+                if (STATE.showLabels) {
+                    const hexStr = '#' + baseColor1.toString(16).padStart(6, '0');
+                    const labelSprite = createTextSprite(`${i + 1}:${base}`, hexStr);
+                    // Position label slightly outside the helix backbone strand
+                    labelSprite.position.set(x1 * 1.3, y, z1 * 1.3);
+                    helixGroup.add(labelSprite);
+                }
+
+                // 3. Hydrogen Bonds Connection Line (Center bridge)
+                if (STATE.showHBonds) {
+                    const hbMat = new THREE.LineDashedMaterial({ color: 0xffffff, dashSize: 0.2, gapSize: 0.1 });
+                    const hbGeo = new THREE.BufferGeometry().setFromPoints([
+                        new THREE.Vector3(x1 * 0.1, y, z1 * 0.1),
+                        new THREE.Vector3(x2 * 0.1, y, z2 * 0.1)
+                    ]);
+                    const hbLine = new THREE.Line(hbGeo, hbMat);
+                    hbLine.computeLineDistances();
+                    helixGroup.add(hbLine);
+                }
+            }
+
+            // 4. Smooth Sugar-Phosphate Backbones Tubes
+            if (STATE.showBackbone && windowSize > 1) {
+                const curve1 = new THREE.CatmullRomCurve3(strand1Points);
+                const tubeGeo1 = new THREE.TubeGeometry(curve1, windowSize * 4, 0.4, 8, false);
+                const tubeMat1 = new THREE.MeshPhongMaterial({ color: 0x06b6d4, shininess: 100, transparent: true, opacity: 0.85 });
+                helixGroup.add(new THREE.Mesh(tubeGeo1, tubeMat1));
+
+                const curve2 = new THREE.CatmullRomCurve3(strand2Points);
+                const tubeGeo2 = new THREE.TubeGeometry(curve2, windowSize * 4, 0.4, 8, false);
+                const tubeMat2 = new THREE.MeshPhongMaterial({ color: 0x3b82f6, shininess: 100, transparent: true, opacity: 0.85 });
+                helixGroup.add(new THREE.Mesh(tubeGeo2, tubeMat2));
+            }
+        }
+
+        // Raycasting for clicking on 3D Base pairs
+        function setupRaycaster() {
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+
+            window.addEventListener('click', (e) => {
+                const canvas = document.getElementById('webgl-canvas');
+                const rect = canvas.getBoundingClientRect();
+
+                if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) return;
+
+                mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObjects(helixGroup.children);
+
+                if (intersects.length > 0) {
+                    const hitObj = intersects[0].object;
+                    if (hitObj.userData && hitObj.userData.index !== undefined) {
+                        selectNucleotide(hitObj.userData.index);
+                    }
+                }
+            });
+        }
+
+        function selectNucleotide(index) {
+            STATE.selectedIndex = index;
+            const seq = STATE.sequence.toUpperCase();
+            const base = seq[index];
+            const comp = getComplement(base);
+            const hbonds = (base === 'G' || base === 'C') ? 3 : 2;
+
+            // Update Inspector Overlay Card
+            document.getElementById('insp-pos').innerText = `bp #${index + 1}`;
+            document.getElementById('insp-pair').innerText = `${base} = ${comp}`;
+            document.getElementById('insp-sense').innerText = `${getBaseFullName(base)} (${base})`;
+            document.getElementById('insp-anti').innerText = `${getBaseFullName(comp)} (${comp})`;
+            document.getElementById('insp-hbonds').innerText = `${hbonds} Hydrogen Bonds`;
+            document.getElementById('inspector-card').classList.remove('hidden');
+
+            // Synchronize with sequence navigation track
+            const navPills = document.querySelectorAll('.seq-pill');
+            navPills.forEach((p, i) => {
+                if (i === index) {
+                    p.classList.add('ring-2', 'ring-cyan-400', 'scale-110');
+                    p.scrollIntoView({ behavior: 'smooth', inline: 'center' });
+                } else {
+                    p.classList.remove('ring-2', 'ring-cyan-400', 'scale-110');
+                }
+            });
+
+            logTerminal(`[INSPECT] Selected Nucleotide bp #${index + 1}: ${base} - ${comp}`);
+        }
+
+        function resetVisualization() {
+            camera.position.set(0, 0, 35);
+            controls.target.set(0, 0, 0);
+            STATE.autoRotate = true;
+            STATE.rotationSpeed = 1.0;
+            STATE.pitch = 1.0;
+            STATE.windowSize = 40;
+            STATE.showBackbone = true;
+            STATE.showHBonds = true;
+            STATE.showLabels = true;
+            STATE.showParticles = true;
+
+            document.getElementById('slider-speed').value = 1.0;
+            document.getElementById('val-speed').innerText = '1.0x';
+            document.getElementById('slider-window').value = 40;
+            document.getElementById('val-window').innerText = '40 bp';
+            document.getElementById('slider-pitch').value = 1.0;
+            document.getElementById('val-pitch').innerText = '1.0';
+            document.getElementById('chk-backbone').checked = true;
+            document.getElementById('chk-hbonds').checked = true;
+            document.getElementById('chk-particles').checked = true;
+            document.getElementById('chk-labels').checked = true;
+
+            render3DHelix();
+            logTerminal('[RESET] Camera and 3D visual controls reset to default parameters.', 'success');
+        }
+
+        function getBaseFullName(b) {
+            const map = { 'A': 'Adenine', 'T': 'Thymine', 'G': 'Guanine', 'C': 'Cytosine', 'U': 'Uracil' };
+            return map[b] || 'Ambiguous';
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (STATE.autoRotate && helixGroup) {
+                helixGroup.rotation.y += 0.005 * STATE.rotationSpeed;
+            }
+
+            if (STATE.showParticles && particleGroup) {
+                particleGroup.rotation.y += 0.0005;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            if (!container) return;
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+
+        // --- 2. BIOINFORMATICS & SEQUENCE ANALYSIS PIPELINE ---
+
+        function getComplement(seq) {
+            const map = { 'A': 'T', 'T': 'A', 'G': 'C', 'C': 'G', 'U': 'A', 'N': 'N' };
+            return seq.split('').map(b => map[b.toUpperCase()] || 'N').join('');
+        }
+
+        function processSequence(rawFasta) {
+            document.getElementById('loader').classList.remove('hidden');
+
+            setTimeout(() => {
+                const lines = rawFasta.trim().split('\n');
+                let header = "Sequence_Record";
+                let seq = "";
+
+                lines.forEach(line => {
+                    if (line.startsWith('>')) {
+                        header = line.substring(1).trim();
+                    } else {
+                        seq += line.trim();
+                    }
+                });
+
+                seq = seq.replace(/[^ATGCUnatgcuN]/g, '').toUpperCase();
+
+                if (seq.length === 0) {
+                    logTerminal("[ERROR] Invalid FASTA format or empty sequence.", "error");
+                    document.getElementById('loader').classList.add('hidden');
+                    return;
+                }
+
+                STATE.sequenceName = header;
+                STATE.sequence = seq;
+                STATE.complement = getComplement(seq);
+
+                document.getElementById('seq-length-badge').innerText = `${seq.length} bp`;
+                
+                const counts = { A: 0, T: 0, G: 0, C: 0 };
+                for (let b of seq) {
+                    if (counts[b] !== undefined) counts[b]++;
+                }
+                const total = seq.length;
+                const gcPercent = (((counts.G + counts.C) / total) * 100).toFixed(1);
+
+                document.getElementById('stat-gc-percent').innerText = `GC: ${gcPercent}%`;
+                document.getElementById('cnt-a').innerText = counts.A;
+                document.getElementById('cnt-t').innerText = counts.T;
+                document.getElementById('cnt-g').innerText = counts.G;
+                document.getElementById('cnt-c').innerText = counts.C;
+
+                document.getElementById('bar-a').style.width = `${(counts.A / total) * 100}%`;
+                document.getElementById('bar-t').style.width = `${(counts.T / total) * 100}%`;
+                document.getElementById('bar-g').style.width = `${(counts.G / total) * 100}%`;
+                document.getElementById('bar-c').style.width = `${(counts.C / total) * 100}%`;
+
+                const revComp = STATE.complement.split('').reverse().join('');
+                document.getElementById('revcomp-output').innerText = revComp;
+
+                render3DHelix();
+                buildSequenceBrowser();
+                updateGCChart();
+                detectORFs();
+
+                logTerminal(`[SUCCESS] FASTA parsed successfully. Record: ${header}, Length: ${total} bp, GC: ${gcPercent}%`, 'success');
+                document.getElementById('loader').classList.add('hidden');
+            }, 300);
+        }
+
+        // Build Navigation Sequence Track Pills
+        function buildSequenceBrowser() {
+            const container = document.getElementById('sequence-browser');
+            container.innerHTML = '';
+            const seq = STATE.sequence;
+
+            for (let i = 0; i < seq.length; i++) {
+                const b = seq[i];
+                const pill = document.createElement('button');
+                pill.className = `seq-pill shrink-0 px-2 py-0.5 rounded text-[11px] font-mono font-bold transition flex items-center gap-1 hover:brightness-125`;
+                
+                if (b === 'A') pill.classList.add('bg-red-500/20', 'text-red-400', 'border', 'border-red-500/30');
+                else if (b === 'T') pill.classList.add('bg-blue-500/20', 'text-blue-400', 'border', 'border-blue-500/30');
+                else if (b === 'G') pill.classList.add('bg-emerald-500/20', 'text-emerald-400', 'border', 'border-emerald-500/30');
+                else if (b === 'C') pill.classList.add('bg-amber-500/20', 'text-amber-400', 'border', 'border-amber-500/30');
+
+                pill.innerHTML = `<span class="text-[9px] text-slate-500">${i+1}</span>${b}`;
+                pill.onclick = () => selectNucleotide(i);
+                container.appendChild(pill);
+            }
+
+            document.getElementById('track-range').innerText = `bp 1 - ${seq.length}`;
+        }
+
+        // Sliding Window GC Chart with Chart.js
+        function updateGCChart() {
+            const ctx = document.getElementById('gcChart').getContext('2d');
+            const seq = STATE.sequence;
+            const windowSize = 10;
+            const labels = [];
+            const dataPoints = [];
+
+            for (let i = 0; i <= seq.length - windowSize; i += 2) {
+                const sub = seq.substring(i, i + windowSize);
+                const gcCount = (sub.match(/[GC]/g) || []).length;
+                labels.push(`${i + 1}`);
+                dataPoints.push(((gcCount / windowSize) * 100).toFixed(1));
+            }
+
+            if (STATE.gcChartInstance) STATE.gcChartInstance.destroy();
+
+            STATE.gcChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'GC %',
+                        data: dataPoints,
+                        borderColor: '#06b6d4',
+                        backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { display: false },
+                        y: {
+                            min: 0,
+                            max: 100,
+                            ticks: { color: '#64748b', font: { size: 9 } },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Open Reading Frame (ORF) Detector
+        function detectORFs() {
+            const seq = STATE.sequence;
+            const orfList = document.getElementById('orf-list');
+            orfList.innerHTML = '';
+            
+            const startCodon = "ATG";
+            const stopCodons = ["TAA", "TAG", "TGA"];
+            STATE.detectedOrfs = [];
+
+            for (let i = 0; i < seq.length - 3; i++) {
+                if (seq.substring(i, i + 3) === startCodon) {
+                    for (let j = i + 3; j < seq.length - 3; j += 3) {
+                        const codon = seq.substring(j, j + 3);
+                        if (stopCodons.includes(codon)) {
+                            STATE.detectedOrfs.push({ start: i + 1, end: j + 3, length: j + 3 - i, stopCodon: codon });
+                            break;
+                        }
+                    }
+                }
+            }
+
+            document.getElementById('orf-count-badge').innerText = `${STATE.detectedOrfs.length} Found`;
+
+            if (STATE.detectedOrfs.length === 0) {
+                orfList.innerHTML = `<div class="text-slate-500 text-[11px]">No canonical ATG ORFs detected in frame 1.</div>`;
+                return;
+            }
+
+            STATE.detectedOrfs.forEach((orf, idx) => {
+                const item = document.createElement('div');
+                item.className = 'p-1.5 rounded bg-navy-900 hover:bg-slate-800 text-[11px] border border-slate-800 flex justify-between cursor-pointer text-indigo-300';
+                item.innerHTML = `<span>ORF #${idx+1}: bp ${orf.start} - ${orf.end}</span><span class="text-slate-500">${orf.length} bp</span>`;
+                item.onclick = () => selectNucleotide(orf.start - 1);
+                orfList.appendChild(item);
+            });
+        }
+
+
+        // --- 3. NCBI E-UTILITIES API INTEGRATION ---
+        async function fetchNCBISequence(accession) {
+            logTerminal(`[NCBI] Fetching record for ID: ${accession}...`);
+            document.getElementById('loader').classList.remove('hidden');
+
+            try {
+                const url = `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=nuccore&id=${accession}&rettype=fasta&retmode=text`;
+                const response = await fetch(url);
+                
+                if (!response.ok) throw new Error("NCBI API Request Failed");
+
+                const fastaText = await response.text();
+                
+                if (!fastaText || fastaText.startsWith("Error")) {
+                    throw new Error("Invalid Accession ID or Record Not Found.");
+                }
+
+                document.getElementById('fasta-input').value = fastaText;
+                processSequence(fastaText);
+
+                document.getElementById('ncbi-meta').classList.remove('hidden');
+                document.getElementById('ncbi-title').innerText = `Accession: ${accession}`;
+                document.getElementById('ncbi-organism').innerText = `Retrieved from NCBI Entrez Direct API`;
+                document.getElementById('ncbi-len').innerText = `Sequence length: ${STATE.sequence.length} bp`;
+
+                logTerminal(`[NCBI] Successfully retrieved accession ${accession}`, 'success');
+            } catch (err) {
+                logTerminal(`[ERROR] NCBI Fetch failed: ${err.message}`, "error");
+                alert(`NCBI Fetch Error: ${err.message}`);
+            } finally {
+                document.getElementById('loader').classList.add('hidden');
+            }
+        }
+
+
+        // --- 4. TERMINAL CONSOLE LOGGING & COMMAND ENGINE ---
+        function logTerminal(msg, type = "info") {
+            const logsContainer = document.getElementById('terminal-logs');
+            const time = new Date().toLocaleTimeString();
+            const el = document.createElement('div');
+            
+            if (type === "error") el.className = "text-red-400";
+            else if (type === "success") el.className = "text-emerald-400";
+            else el.className = "text-slate-300";
+
+            el.innerText = `[${time}] ${msg}`;
+            logsContainer.appendChild(el);
+            logsContainer.scrollTop = logsContainer.scrollHeight;
+        }
+
+        // Expanded Terminal Command Executions
+        document.getElementById('terminal-cmd').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const inputVal = e.target.value.trim();
+                if (!inputVal) return;
+                
+                const parts = inputVal.split(' ');
+                const cmd = parts[0].toLowerCase();
+                const arg = parts[1];
+
+                e.target.value = '';
+                logTerminal(`$ ${inputVal}`);
+
+                switch (cmd) {
+                    case 'help':
+                        logTerminal("=== DNA VISION 3D TERMINAL COMMANDS ===");
+                        logTerminal("  stats       - View length, record header & nucleotide composition");
+                        logTerminal("  gc          - Show overall GC% content");
+                        logTerminal("  orfs        - List all detected Open Reading Frames");
+                        logTerminal("  revcomp     - Print 3'->5' reverse complement strand");
+                        logTerminal("  fasta       - Print current FASTA input snippet");
+                        logTerminal("  length      - Display sequence length");
+                        logTerminal("  reset       - Reset 3D camera & render options to default");
+                        logTerminal("  clear       - Clear terminal screen");
+                        logTerminal("  speed [val] - Set auto-rotation speed (e.g., 'speed 1.5')");
+                        logTerminal("  backbone    - Toggle sugar-phosphate backbone visibility");
+                        break;
+
+                    case 'stats':
+                        const counts = { A: 0, T: 0, G: 0, C: 0 };
+                        for (let b of STATE.sequence) if (counts[b] !== undefined) counts[b]++;
+                        logTerminal(`[RECORD] Header: ${STATE.sequenceName}`);
+                        logTerminal(`[LENGTH] Total: ${STATE.sequence.length} bp`);
+                        logTerminal(`[COUNTS] A: ${counts.A} | T: ${counts.T} | G: ${counts.G} | C: ${counts.C}`);
+                        break;
+
+                    case 'gc':
+                        logTerminal(`[GC%] Composition: ${document.getElementById('stat-gc-percent').innerText}`);
+                        break;
+
+                    case 'orfs':
+                        if (STATE.detectedOrfs.length === 0) {
+                            logTerminal('[ORFs] No canonical ATG Open Reading Frames found.');
+                        } else {
+                            logTerminal(`[ORFs] Found ${STATE.detectedOrfs.length} ORF(s):`);
+                            STATE.detectedOrfs.forEach((orf, i) => {
+                                logTerminal(`  #${i + 1}: bp ${orf.start} to ${orf.end} (${orf.length} bp, Stop: ${orf.stopCodon})`);
+                            });
+                        }
+                        break;
+
+                    case 'revcomp':
+                        logTerminal(`[REVCOMP] 3'->5': ${STATE.complement.split('').reverse().join('')}`);
+                        break;
+
+                    case 'fasta':
+                        logTerminal(`>${STATE.sequenceName}`);
+                        logTerminal(`${STATE.sequence.substring(0, 60)}${STATE.sequence.length > 60 ? '...' : ''}`);
+                        break;
+
+                    case 'length':
+                        logTerminal(`[LENGTH] ${STATE.sequence.length} base pairs`);
+                        break;
+
+                    case 'reset':
+                        resetVisualization();
+                        break;
+
+                    case 'clear':
+                        document.getElementById('terminal-logs').innerHTML = '';
+                        logTerminal('[DNA-VISION] Terminal console cleared.');
+                        break;
+
+                    case 'speed':
+                        if (arg && !isNaN(arg)) {
+                            const val = parseFloat(arg);
+                            STATE.rotationSpeed = val;
+                            document.getElementById('slider-speed').value = val;
+                            document.getElementById('val-speed').innerText = `${val}x`;
+                            logTerminal(`[RENDER] Rotation speed set to ${val}x`, 'success');
+                        } else {
+                            logTerminal(`[USAGE] speed [number] (Current: ${STATE.rotationSpeed}x)`);
+                        }
+                        break;
+
+                    case 'backbone':
+                        STATE.showBackbone = !STATE.showBackbone;
+                        document.getElementById('chk-backbone').checked = STATE.showBackbone;
+                        render3DHelix();
+                        logTerminal(`[RENDER] Backbone set to ${STATE.showBackbone ? 'VISIBLE' : 'HIDDEN'}`);
+                        break;
+
+                    default:
+                        logTerminal(`Command not recognized: '${cmd}'. Type 'help' for full command list.`, "error");
+                        break;
+                }
+            }
+        });
+
+
+        // --- 5. USER INTERFACE EVENT LISTENERS & INITIALIZATION ---
+
+        // Tab Switching Logic (Left Panel)
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => {
+                    b.classList.remove('active', 'border-cyan-400', 'text-cyan-400');
+                    b.classList.add('border-transparent', 'text-slate-400');
+                });
+                btn.classList.add('active', 'border-cyan-400', 'text-cyan-400');
+
+                const tabId = btn.getAttribute('data-tab');
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+                document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            });
+        });
+
+        // Tab Switching Logic (Right Panel)
+        document.querySelectorAll('.right-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.right-tab-btn').forEach(b => {
+                    b.classList.remove('active', 'border-cyan-400', 'text-cyan-400');
+                    b.classList.add('border-transparent', 'text-slate-400');
+                });
+                btn.classList.add('active', 'border-cyan-400', 'text-cyan-400');
+
+                const rtabId = btn.getAttribute('data-rtab');
+                document.querySelectorAll('.right-tab-content').forEach(c => c.classList.add('hidden'));
+                document.getElementById(`rtab-${rtabId}`).classList.remove('hidden');
+            });
+        });
+
+        // Sliders & Checkbox Render Controls
+        document.getElementById('slider-speed').addEventListener('input', (e) => {
+            STATE.rotationSpeed = parseFloat(e.target.value);
+            document.getElementById('val-speed').innerText = `${STATE.rotationSpeed}x`;
+        });
+
+        document.getElementById('slider-window').addEventListener('input', (e) => {
+            STATE.windowSize = parseInt(e.target.value);
+            document.getElementById('val-window').innerText = `${STATE.windowSize} bp`;
+            render3DHelix();
+        });
+
+        document.getElementById('slider-pitch').addEventListener('input', (e) => {
+            STATE.pitch = parseFloat(e.target.value);
+            document.getElementById('val-pitch').innerText = `${STATE.pitch}`;
+            render3DHelix();
+        });
+
+        document.getElementById('chk-backbone').addEventListener('change', (e) => {
+            STATE.showBackbone = e.target.checked;
+            render3DHelix();
+        });
+
+        document.getElementById('chk-hbonds').addEventListener('change', (e) => {
+            STATE.showHBonds = e.target.checked;
+            render3DHelix();
+        });
+
+        document.getElementById('chk-particles').addEventListener('change', (e) => {
+            STATE.showParticles = e.target.checked;
+            particleGroup.visible = e.target.checked;
+        });
+
+        document.getElementById('chk-labels').addEventListener('change', (e) => {
+            STATE.showLabels = e.target.checked;
+            render3DHelix();
+        });
+
+        // Buttons Action Listeners
+        document.getElementById('btn-visualize').addEventListener('click', () => {
+            const text = document.getElementById('fasta-input').value;
+            processSequence(text);
+        });
+
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            document.getElementById('fasta-input').value = '';
+        });
+
+        document.getElementById('btn-sample-data').addEventListener('click', () => {
+            const sample = `>Human_Beta_Globin_Excerpt\nATGGTGCACCTGACTCCTGAGGAGAAGTCTGCCGTTACTGCCCTGTGGGGCAAGGTGAACGTGGATGAAGTTGGTGGTGAGGCCCTGGGCAGGCTGCTGGTGGTCTACCCTTGGACCCAGAGGTTCTTTGAGTCCTTTGGGGATCTGTCCACTCCTGATGCTGTTATGGGCAACCCTAAGGTGAAGGCTCATGGCAAGAAAGTGCTCGGTGCCTTTAGTGATGGCCTGGCTCACCTGGACAACCTCAAGGGCACCTTTGCCACACTGAGTGAGCTGCACTGTGACAAGCTGCACGTGGATCCTGAGAACTTCAGGCTCCTGGGCAACGTGCTGGTCTGTGTGCTGGCCCATCACTTTGGCAAAGAATTCACCCCACCAGTGCAGGCTGCCTATCAGAAAGTGGTGGCTGGTGTGGCTAATGCCCTGGCCCACAAGTATCACTAA`;
+            document.getElementById('fasta-input').value = sample;
+            processSequence(sample);
+        });
+
+        document.getElementById('btn-ncbi-fetch').addEventListener('click', () => {
+            const acc = document.getElementById('ncbi-id-input').value.trim();
+            if (acc) fetchNCBISequence(acc);
+        });
+
+        document.getElementById('btn-close-inspector').addEventListener('click', () => {
+            document.getElementById('inspector-card').classList.add('hidden');
+        });
+
+        // 3D HUD Camera Controls
+        document.getElementById('btn-cam-reset').addEventListener('click', resetVisualization);
+
+        document.getElementById('btn-toggle-auto-rotate').addEventListener('click', () => {
+            STATE.autoRotate = !STATE.autoRotate;
+            logTerminal(`[CAMERA] Auto-rotation set to ${STATE.autoRotate}`);
+        });
+
+        document.getElementById('btn-cam-top').addEventListener('click', () => {
+            camera.position.set(0, 35, 0.1);
+            controls.target.set(0, 0, 0);
+        });
+
+        // Modal Guide Controls
+        document.getElementById('btn-learn-mode').addEventListener('click', () => {
+            document.getElementById('guide-modal').classList.remove('hidden');
+        });
+
+        document.getElementById('btn-close-guide').addEventListener('click', () => {
+            document.getElementById('guide-modal').classList.add('hidden');
+        });
+
+        document.getElementById('btn-close-guide-footer').addEventListener('click', () => {
+            document.getElementById('guide-modal').classList.add('hidden');
+        });
+
+        // Export Functionality to formatted .txt Report File
+        document.getElementById('btn-export-menu').addEventListener('click', () => {
+            const counts = { A: 0, T: 0, G: 0, C: 0 };
+            for (let b of STATE.sequence) if (counts[b] !== undefined) counts[b]++;
+            const revCompStr = STATE.complement.split('').reverse().join('');
+
+            let reportText = `=====================================================\n`;
+            reportText += `     DNA VISION 3D - SEQUENCE ANALYSIS REPORT\n`;
+            reportText += `=====================================================\n\n`;
+            reportText += `Generated Date : ${new Date().toLocaleString()}\n`;
+            reportText += `Record Name    : ${STATE.sequenceName}\n`;
+            reportText += `Sequence Length: ${STATE.sequence.length} base pairs\n`;
+            reportText += `GC Percentage  : ${document.getElementById('stat-gc-percent').innerText}\n\n`;
+            reportText += `-----------------------------------------------------\n`;
+            reportText += `NUCLEOTIDE COMPOSITION\n`;
+            reportText += `-----------------------------------------------------\n`;
+            reportText += `Adenine  (A) : ${counts.A}\n`;
+            reportText += `Thymine  (T) : ${counts.T}\n`;
+            reportText += `Guanine  (G) : ${counts.G}\n`;
+            reportText += `Cytosine (C) : ${counts.C}\n\n`;
+            reportText += `-----------------------------------------------------\n`;
+            reportText += `DETECTED OPEN READING FRAMES (ORFs)\n`;
+            reportText += `-----------------------------------------------------\n`;
+            if (STATE.detectedOrfs.length === 0) {
+                reportText += `No canonical ATG ORFs detected in frame 1.\n`;
+            } else {
+                STATE.detectedOrfs.forEach((orf, i) => {
+                    reportText += `ORF #${i + 1}: bp ${orf.start} to ${orf.end} | Length: ${orf.length} bp | Stop Codon: ${orf.stopCodon}\n`;
+                });
+            }
+            reportText += `\n-----------------------------------------------------\n`;
+            reportText += `FASTA SEQUENCE (5' -> 3')\n`;
+            reportText += `-----------------------------------------------------\n`;
+            reportText += `>${STATE.sequenceName}\n${STATE.sequence}\n\n`;
+            reportText += `-----------------------------------------------------\n`;
+            reportText += `REVERSE COMPLEMENT (3' -> 5')\n`;
+            reportText += `-----------------------------------------------------\n`;
+            reportText += `${revCompStr}\n\n`;
+            reportText += `=====================================================\n`;
+
+            const blob = new Blob([reportText], { type: 'text/plain;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `${STATE.sequenceName.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_report.txt`;
+            link.click();
+            URL.revokeObjectURL(link.href);
+
+            logTerminal("[EXPORT] Analysis text report (.txt) downloaded successfully.", "success");
+        });
+
+        document.getElementById('btn-copy-revcomp').addEventListener('click', () => {
+            const rev = document.getElementById('revcomp-output').innerText;
+            navigator.clipboard.writeText(rev);
+            logTerminal('[CLIPBOARD] Reverse complement copied.', 'success');
+        });
+
+        // File Drag & Drop
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handleFile(e.target.files[0]);
+        });
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-cyan-400');
+        });
+
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-cyan-400'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-cyan-400');
+            if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+        });
+
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('fasta-input').value = e.target.result;
+                processSequence(e.target.result);
+            };
+            reader.readAsText(file);
+        }
+
+        // --- ADDED: 3D VIEWPORT RECORDING ---
+        // Records only the live WebGL canvas and downloads it as a WebM video.
+        let dnaViewportRecorder = null;
+        let dnaViewportChunks = [];
+
+        document.getElementById('btn-record').addEventListener('click', () => {
+            const recordButton = document.getElementById('btn-record');
+            const recordLabel = document.getElementById('btn-record-label');
+            const canvas = document.getElementById('webgl-canvas');
+
+            if (dnaViewportRecorder && dnaViewportRecorder.state === 'recording') {
+                dnaViewportRecorder.stop();
+                return;
+            }
+
+            if (!canvas.captureStream || !window.MediaRecorder) {
+                alert('Video recording is not supported in this browser. Please try a recent version of Chrome or Edge.');
+                return;
+            }
+
+            try {
+                const stream = canvas.captureStream(30);
+                const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+                    ? 'video/webm;codecs=vp9'
+                    : (MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : '');
+
+                if (!mimeType) {
+                    stream.getTracks().forEach(track => track.stop());
+                    alert('This browser does not support WebM recording.');
+                    return;
+                }
+
+                dnaViewportChunks = [];
+                dnaViewportRecorder = new MediaRecorder(stream, { mimeType });
+                dnaViewportRecorder.addEventListener('dataavailable', event => {
+                    if (event.data && event.data.size > 0) dnaViewportChunks.push(event.data);
+                });
+                dnaViewportRecorder.addEventListener('stop', () => {
+                    const videoBlob = new Blob(dnaViewportChunks, { type: mimeType });
+                    if (videoBlob.size > 0) {
+                        const videoUrl = URL.createObjectURL(videoBlob);
+                        const downloadLink = document.createElement('a');
+                        const safeName = (STATE.sequenceName || 'dna-vision')
+                            .replace(/[^a-z0-9_-]/gi, '_').slice(0, 80);
+                        downloadLink.href = videoUrl;
+                        downloadLink.download = `${safeName}_3d_recording.webm`;
+                        document.body.appendChild(downloadLink);
+                        downloadLink.click();
+                        downloadLink.remove();
+                        setTimeout(() => URL.revokeObjectURL(videoUrl), 1500);
+                        logTerminal('[RECORD] 3D viewport recording downloaded as WebM.', 'success');
+                    } else {
+                        logTerminal('[RECORD] No video data was captured.', 'error');
+                    }
+                    stream.getTracks().forEach(track => track.stop());
+                    recordButton.classList.remove('bg-red-700', 'hover:bg-red-600');
+                    recordButton.classList.add('bg-slate-800', 'hover:bg-slate-700');
+                    recordLabel.textContent = 'Record';
+                    lucide.createIcons();
+                });
+                dnaViewportRecorder.start();
+                recordButton.classList.remove('bg-slate-800', 'hover:bg-slate-700');
+                recordButton.classList.add('bg-red-700', 'hover:bg-red-600');
+                recordLabel.textContent = 'Stop Recording';
+                logTerminal('[RECORD] Recording the 3D DNA viewport at 30 FPS. Click Stop Recording to save.', 'success');
+            } catch (error) {
+                console.error(error);
+                alert('Could not start recording. Please check browser recording support and permissions.');
+            }
+        });
+
+        // --- ADDED: FULL-SCREEN MODE ---
+        document.getElementById('btn-fullscreen').addEventListener('click', async () => {
+            try {
+                if (!document.fullscreenElement) {
+                    await document.documentElement.requestFullscreen();
+                } else {
+                    await document.exitFullscreen();
+                }
+            } catch (error) {
+                logTerminal(`[FULLSCREEN] Could not change full-screen mode: ${error.message}`, 'error');
+            }
+        });
+
+        document.addEventListener('fullscreenchange', () => {
+            const button = document.getElementById('btn-fullscreen');
+            button.innerHTML = document.fullscreenElement
+                ? '<i data-lucide="minimize-2" class="w-4 h-4"></i>'
+                : '<i data-lucide="maximize-2" class="w-4 h-4"></i>';
+            button.title = document.fullscreenElement ? 'Exit full-screen mode' : 'Toggle full-screen mode';
+            lucide.createIcons();
+            setTimeout(onWindowResize, 100);
+        });
+
+        // --- 6. APPLICATION BOOTSTRAP ---
+        window.onload = () => {
+            init3DScene();
+            // Load default initial sample
+            document.getElementById('btn-sample-data').click();
+        };
+
+    </script>
+</body>
+</html>
